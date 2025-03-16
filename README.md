@@ -1,83 +1,81 @@
-# Deploying Nginx and MySQL as Web Services on Render
+# Deploying MySQL + phpMyAdmin as a Web Service on Render
 
-This guide will help you deploy **Nginx (port 8000)** and **MySQL (port 3306)** as separate web services on Render using Docker.
+This guide will help you deploy **MySQL (port 3306)** with **phpMyAdmin (port 8000)** as a web service on Render using Docker.
 
 ## Prerequisites
-- A **GitHub/GitLab** repository with Dockerfiles for Nginx and MySQL.
+- A **GitHub/GitLab** repository with Dockerfiles for MySQL + phpMyAdmin.
 - A **Render** account.
 
 ---
 
-## 1️⃣ **Setup Nginx Web Service**
+## 1️⃣ **Setup MySQL + phpMyAdmin Web Service**
 
-### **Dockerfile (Nginx)**
+### **Dockerfile (MySQL + phpMyAdmin)**
 ```dockerfile
 # Use Ubuntu as the base image
 FROM ubuntu:latest
 
-# Install Nginx
-RUN apt update && apt install -y nginx && rm -rf /var/lib/apt/lists/*
+# Update and install MySQL, Apache, PHP, and required dependencies
+RUN apt update && apt install -y \
+    mysql-server \
+    php \
+    php-mysqli \
+    apache2 \
+    php-cli \
+    php-curl \
+    php-json \
+    php-mbstring \
+    php-xml \
+    wget unzip && \
+    rm -rf /var/lib/apt/lists/*
 
-# Expose port 8000
-EXPOSE 8000
+# Expose MySQL and Apache HTTP ports
+EXPOSE 8000 3306
 
-# Modify Nginx default configuration to listen on port 8000
-RUN sed -i 's/listen 80 default_server;/listen 8000 default_server;/g' /etc/nginx/sites-available/default
+# Allow remote MySQL connections
+RUN sed -i 's/bind-address.*/bind-address = 0.0.0.0/' /etc/mysql/mysql.conf.d/mysqld.cnf
 
-# Copy Render's startup script
+# Set MySQL root password via environment variable
+ENV MYSQL_ROOT_PASSWORD=my-secret-password
+
+# Install phpMyAdmin
+RUN wget -O /tmp/phpmyadmin.zip https://files.phpmyadmin.net/phpMyAdmin/5.2.1/phpMyAdmin-5.2.1-all-languages.zip && \
+    unzip /tmp/phpmyadmin.zip -d /var/www/html/ && \
+    mv /var/www/html/phpMyAdmin-5.2.1-all-languages /var/www/html/phpmyadmin && \
+    rm /tmp/phpmyadmin.zip
+
+# Set Apache to serve phpMyAdmin on port 8000
+RUN sed -i 's/80/8000/g' /etc/apache2/ports.conf
+RUN sed -i 's/:80>/:8000>/g' /etc/apache2/sites-enabled/000-default.conf
+
+# Startup script to run MySQL and Apache
 COPY start.sh /start.sh
 RUN chmod +x /start.sh
 
-# Set entrypoint to the startup script
+# Set entrypoint
 CMD ["/start.sh"]
 ```
 
-### **start.sh (Nginx Startup Script)**
+### **start.sh (Startup Script)**
 ```sh
 #!/bin/bash
-# Start Nginx
-nginx -g 'daemon off;'
+
+# Start MySQL service
+service mysql start
+
+# Set MySQL root password
+mysql -e "ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY '${MYSQL_ROOT_PASSWORD}'; FLUSH PRIVILEGES;"
+
+# Start Apache server
+apachectl -D FOREGROUND
 ```
 
-### **Render Deployment Steps for Nginx**
+### **Render Deployment Steps for MySQL + phpMyAdmin**
 1. Push the `Dockerfile` and `start.sh` to your GitHub/GitLab repository.
 2. Go to [Render](https://dashboard.render.com/).
 3. Create a **new Web Service**.
 4. Select your repository and choose **Docker**.
 5. Set **port to 8000**.
-6. Deploy the service.
-
----
-
-## 2️⃣ **Setup MySQL Web Service**
-
-### **Dockerfile (MySQL)**
-```dockerfile
-# Use Ubuntu as base image
-FROM ubuntu:latest
-
-# Install MySQL server
-RUN apt update && apt install -y mysql-server && rm -rf /var/lib/apt/lists/*
-
-# Expose MySQL port
-EXPOSE 3306
-
-# Allow remote connections
-RUN sed -i 's/bind-address.*/bind-address = 0.0.0.0/' /etc/mysql/mysql.conf.d/mysqld.cnf
-
-# Set MySQL root password and allow connections from any host
-ENV MYSQL_ROOT_PASSWORD=my-secret-password
-
-# Start MySQL
-CMD ["mysqld_safe"]
-```
-
-### **Render Deployment Steps for MySQL**
-1. Push the `Dockerfile` to your GitHub/GitLab repository.
-2. Go to [Render](https://dashboard.render.com/).
-3. Create a **new Web Service**.
-4. Select your repository and choose **Docker**.
-5. Set **port to 3306**.
 6. Add an environment variable:
    ```
    MYSQL_ROOT_PASSWORD=my-secret-password
@@ -86,17 +84,22 @@ CMD ["mysqld_safe"]
 
 ---
 
+## 2️⃣ **Access phpMyAdmin**
+Once deployed, visit:
+```
+https://your-service-name.onrender.com/phpmyadmin
+```
+- **Username:** `root`
+- **Password:** `my-secret-password`
+
+---
+
 ## 3️⃣ **Connecting to MySQL Externally**
-Once deployed, Render will provide a **public URL** for your **MySQL service** (e.g., `mysql-service-name.onrender.com`).
+Once deployed, Render will provide a **public URL** for your **phpMyAdmin**.
 
-To connect from your backend or MySQL client:
-```sh
-mysql -h mysql-service-name.onrender.com -u root -p
+To connect to MySQL from your backend:
 ```
-
-For backend connections, use:
-```
-DATABASE_HOST=mysql-service-name.onrender.com
+DATABASE_HOST=your-service-name.onrender.com
 DATABASE_USER=root
 DATABASE_PASSWORD=my-secret-password
 DATABASE_PORT=3306
@@ -105,7 +108,7 @@ DATABASE_PORT=3306
 ---
 
 ## **Final Setup**
-✅ **Nginx running on port 8000**  
+✅ **phpMyAdmin running on port 8000**  
 ✅ **MySQL running on port 3306 with external access**  
 
 Now your services are live on Render! 🚀
