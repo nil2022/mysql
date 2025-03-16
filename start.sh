@@ -12,5 +12,8 @@ mysql -e "CREATE USER 'root'@'%' IDENTIFIED BY '${MYSQL_ROOT_PASSWORD}';"
 mysql -e "GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' WITH GRANT OPTION;"
 mysql -e "FLUSH PRIVILEGES;"
 
+# Restart MySQL to apply changes
+service mysql restart
+
 # Start Apache server
 apachectl -D FOREGROUND
