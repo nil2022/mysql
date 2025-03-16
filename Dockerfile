@@ -24,6 +24,9 @@ RUN sed -i 's/bind-address.*/bind-address = 0.0.0.0/' /etc/mysql/mysql.conf.d/my
 # Set MySQL root password via environment variable
 ENV MYSQL_ROOT_PASSWORD=my-secret-password
 
+ENV PMA_HOST=mysql
+
+
 # Install phpMyAdmin
 RUN wget -O /tmp/phpmyadmin.zip https://files.phpmyadmin.net/phpMyAdmin/5.2.1/phpMyAdmin-5.2.1-all-languages.zip && \
     unzip /tmp/phpmyadmin.zip -d /var/www/html/ && \
