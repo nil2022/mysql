@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <title>Deploying Nginx and MySQL as Web Services on Render</title>
+            <style>
+/* From extension vscode.github */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.vscode-dark img[src$=\#gh-light-mode-only],
+.vscode-light img[src$=\#gh-dark-mode-only],
+.vscode-high-contrast:not(.vscode-high-contrast-light) img[src$=\#gh-light-mode-only],
+.vscode-high-contrast-light img[src$=\#gh-dark-mode-only] {
+	display: none;
+}
+
+</style>
+            
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Microsoft/vscode/extensions/markdown-language-features/media/markdown.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Microsoft/vscode/extensions/markdown-language-features/media/highlight.css">
+<style>
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe WPC', 'Segoe UI', system-ui, 'Ubuntu', 'Droid Sans', sans-serif;
+                font-size: 14px;
+                line-height: 1.6;
+            }
+        </style>
+        <style>
+.task-list-item {
+    list-style-type: none;
+}
+
+.task-list-item-checkbox {
+    margin-left: -20px;
+    vertical-align: middle;
+    pointer-events: none;
+}
+</style>
+<style>
+:root {
+  --color-note: #0969da;
+  --color-tip: #1a7f37;
+  --color-warning: #9a6700;
+  --color-severe: #bc4c00;
+  --color-caution: #d1242f;
+  --color-important: #8250df;
+}
+
+</style>
+<style>
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-note: #2f81f7;
+    --color-tip: #3fb950;
+    --color-warning: #d29922;
+    --color-severe: #db6d28;
+    --color-caution: #f85149;
+    --color-important: #a371f7;
+  }
+}
+
+</style>
+<style>
+.markdown-alert {
+  padding: 0.5rem 1rem;
+  margin-bottom: 16px;
+  color: inherit;
+  border-left: .25em solid #888;
+}
+
+.markdown-alert>:first-child {
+  margin-top: 0
+}
+
+.markdown-alert>:last-child {
+  margin-bottom: 0
+}
+
+.markdown-alert .markdown-alert-title {
+  display: flex;
+  font-weight: 500;
+  align-items: center;
+  line-height: 1
+}
+
+.markdown-alert .markdown-alert-title .octicon {
+  margin-right: 0.5rem;
+  display: inline-block;
+  overflow: visible !important;
+  vertical-align: text-bottom;
+  fill: currentColor;
+}
+
+.markdown-alert.markdown-alert-note {
+  border-left-color: var(--color-note);
+}
+
+.markdown-alert.markdown-alert-note .markdown-alert-title {
+  color: var(--color-note);
+}
+
+.markdown-alert.markdown-alert-important {
+  border-left-color: var(--color-important);
+}
+
+.markdown-alert.markdown-alert-important .markdown-alert-title {
+  color: var(--color-important);
+}
+
+.markdown-alert.markdown-alert-warning {
+  border-left-color: var(--color-warning);
+}
+
+.markdown-alert.markdown-alert-warning .markdown-alert-title {
+  color: var(--color-warning);
+}
+
+.markdown-alert.markdown-alert-tip {
+  border-left-color: var(--color-tip);
+}
+
+.markdown-alert.markdown-alert-tip .markdown-alert-title {
+  color: var(--color-tip);
+}
+
+.markdown-alert.markdown-alert-caution {
+  border-left-color: var(--color-caution);
+}
+
+.markdown-alert.markdown-alert-caution .markdown-alert-title {
+  color: var(--color-caution);
+}
+
+</style>
+        
+        </head>
+        <body class="vscode-body vscode-light">
+            <h1 id="deploying-nginx-and-mysql-as-web-services-on-render">Deploying Nginx and MySQL as Web Services on Render</h1>
+<p>This guide will help you deploy <strong>Nginx (port 8000)</strong> and <strong>MySQL (port 3306)</strong> as separate web services on Render using Docker.</p>
+<h2 id="prerequisites">Prerequisites</h2>
+<ul>
+<li>A <strong>GitHub/GitLab</strong> repository with Dockerfiles for Nginx and MySQL.</li>
+<li>A <strong>Render</strong> account.</li>
+</ul>
+<hr>
+<h2 id="1️⃣-setup-nginx-web-service">1️⃣ <strong>Setup Nginx Web Service</strong></h2>
+<h3 id="dockerfile-nginx"><strong>Dockerfile (Nginx)</strong></h3>
+<pre><code class="language-dockerfile"><span class="hljs-comment"># Use Ubuntu as the base image</span>
+<span class="hljs-keyword">FROM</span> ubuntu:latest
+
+<span class="hljs-comment"># Install Nginx</span>
+<span class="hljs-keyword">RUN</span><span class="language-bash"> apt update &amp;&amp; apt install -y nginx &amp;&amp; <span class="hljs-built_in">rm</span> -rf /var/lib/apt/lists/*</span>
+
+<span class="hljs-comment"># Expose port 8000</span>
+<span class="hljs-keyword">EXPOSE</span> <span class="hljs-number">8000</span>
+
+<span class="hljs-comment"># Modify Nginx default configuration to listen on port 8000</span>
+<span class="hljs-keyword">RUN</span><span class="language-bash"> sed -i <span class="hljs-string">&#x27;s/listen 80 default_server;/listen 8000 default_server;/g&#x27;</span> /etc/nginx/sites-available/default</span>
+
+<span class="hljs-comment"># Copy Render&#x27;s startup script</span>
+<span class="hljs-keyword">COPY</span><span class="language-bash"> start.sh /start.sh</span>
+<span class="hljs-keyword">RUN</span><span class="language-bash"> <span class="hljs-built_in">chmod</span> +x /start.sh</span>
+
+<span class="hljs-comment"># Set entrypoint to the startup script</span>
+<span class="hljs-keyword">CMD</span><span class="language-bash"> [<span class="hljs-string">&quot;/start.sh&quot;</span>]</span>
+</code></pre>
+<h3 id="startsh-nginx-startup-script"><strong><a href="http://start.sh">start.sh</a> (Nginx Startup Script)</strong></h3>
+<pre><code class="language-sh"><span class="hljs-meta">#!/bin/bash</span>
+<span class="hljs-comment"># Start Nginx</span>
+nginx -g <span class="hljs-string">&#x27;daemon off;&#x27;</span>
+</code></pre>
+<h3 id="render-deployment-steps-for-nginx"><strong>Render Deployment Steps for Nginx</strong></h3>
+<ol>
+<li>Push the <code>Dockerfile</code> and <code>start.sh</code> to your GitHub/GitLab repository.</li>
+<li>Go to <a href="https://dashboard.render.com/">Render</a>.</li>
+<li>Create a <strong>new Web Service</strong>.</li>
+<li>Select your repository and choose <strong>Docker</strong>.</li>
+<li>Set <strong>port to 8000</strong>.</li>
+<li>Deploy the service.</li>
+</ol>
+<hr>
+<h2 id="2️⃣-setup-mysql-web-service">2️⃣ <strong>Setup MySQL Web Service</strong></h2>
+<h3 id="dockerfile-mysql"><strong>Dockerfile (MySQL)</strong></h3>
+<pre><code class="language-dockerfile"><span class="hljs-comment"># Use Ubuntu as base image</span>
+<span class="hljs-keyword">FROM</span> ubuntu:latest
+
+<span class="hljs-comment"># Install MySQL server</span>
+<span class="hljs-keyword">RUN</span><span class="language-bash"> apt update &amp;&amp; apt install -y mysql-server &amp;&amp; <span class="hljs-built_in">rm</span> -rf /var/lib/apt/lists/*</span>
+
+<span class="hljs-comment"># Expose MySQL port</span>
+<span class="hljs-keyword">EXPOSE</span> <span class="hljs-number">3306</span>
+
+<span class="hljs-comment"># Allow remote connections</span>
+<span class="hljs-keyword">RUN</span><span class="language-bash"> sed -i <span class="hljs-string">&#x27;s/bind-address.*/bind-address = 0.0.0.0/&#x27;</span> /etc/mysql/mysql.conf.d/mysqld.cnf</span>
+
+<span class="hljs-comment"># Set MySQL root password and allow connections from any host</span>
+<span class="hljs-keyword">ENV</span> MYSQL_ROOT_PASSWORD=my-secret-password
+
+<span class="hljs-comment"># Start MySQL</span>
+<span class="hljs-keyword">CMD</span><span class="language-bash"> [<span class="hljs-string">&quot;mysqld_safe&quot;</span>]</span>
+</code></pre>
+<h3 id="render-deployment-steps-for-mysql"><strong>Render Deployment Steps for MySQL</strong></h3>
+<ol>
+<li>Push the <code>Dockerfile</code> to your GitHub/GitLab repository.</li>
+<li>Go to <a href="https://dashboard.render.com/">Render</a>.</li>
+<li>Create a <strong>new Web Service</strong>.</li>
+<li>Select your repository and choose <strong>Docker</strong>.</li>
+<li>Set <strong>port to 3306</strong>.</li>
+<li>Add an environment variable:<pre><code>MYSQL_ROOT_PASSWORD=my-secret-password
+</code></pre>
+</li>
+<li>Deploy the service.</li>
+</ol>
+<hr>
+<h2 id="3️⃣-connecting-to-mysql-externally">3️⃣ <strong>Connecting to MySQL Externally</strong></h2>
+<p>Once deployed, Render will provide a <strong>public URL</strong> for your <strong>MySQL service</strong> (e.g., <code>mysql-service-name.onrender.com</code>).</p>
+<p>To connect from your backend or MySQL client:</p>
+<pre><code class="language-sh">mysql -h mysql-service-name.onrender.com -u root -p
+</code></pre>
+<p>For backend connections, use:</p>
+<pre><code>DATABASE_HOST=mysql-service-name.onrender.com
+DATABASE_USER=root
+DATABASE_PASSWORD=my-secret-password
+DATABASE_PORT=3306
+</code></pre>
+<hr>
+<h2 id="final-setup"><strong>Final Setup</strong></h2>
+<p>✅ <strong>Nginx running on port 8000</strong><br>
+✅ <strong>MySQL running on port 3306 with external access</strong></p>
+<p>Now your services are live on Render! 🚀</p>
+
+            
+            
+        </body>
+        </html>
