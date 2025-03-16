@@ -1,45 +1,29 @@
-# Use Ubuntu as the base image
+# Use an official Ubuntu image as the base
 FROM ubuntu:latest
 
-# Update and install MySQL, Apache, PHP, and required dependencies
-RUN apt update && apt install -y \
+# Set environment variables
+ENV DEBIAN_FRONTEND=noninteractive
+ENV MYSQL_ROOT_PASSWORD=your-secret-password
+
+# Install necessary packages
+RUN apt-get update && apt-get install -y \
     mysql-server \
-    php \
-    php-mysqli \
     apache2 \
-    php-cli \
-    php-curl \
-    php-json \
-    php-mbstring \
-    php-xml \
-    wget unzip && \
-    rm -rf /var/lib/apt/lists/*
+    php \
+    php-mysql \
+    libapache2-mod-php \
+    phpmyadmin \
+    && rm -rf /var/lib/apt/lists/*
 
-# Expose MySQL and Apache HTTP ports
-EXPOSE 8000 3306
-
-# Allow remote MySQL connections
+# Configure MySQL to allow external connections
 RUN sed -i 's/bind-address.*/bind-address = 0.0.0.0/' /etc/mysql/mysql.conf.d/mysqld.cnf
 
-# Set MySQL root password via environment variable
-ENV MYSQL_ROOT_PASSWORD=my-secret-password
-
-ENV PMA_HOST=mysql
-
-
-# Install phpMyAdmin
-RUN wget -O /tmp/phpmyadmin.zip https://files.phpmyadmin.net/phpMyAdmin/5.2.1/phpMyAdmin-5.2.1-all-languages.zip && \
-    unzip /tmp/phpmyadmin.zip -d /var/www/html/ && \
-    mv /var/www/html/phpMyAdmin-5.2.1-all-languages /var/www/html/phpmyadmin && \
-    rm /tmp/phpmyadmin.zip
-
-# Set Apache to serve phpMyAdmin on port 8000
-RUN sed -i 's/80/8000/g' /etc/apache2/ports.conf
-RUN sed -i 's/:80>/:8000>/g' /etc/apache2/sites-enabled/000-default.conf
-
-# Startup script to run MySQL and Apache
+# Copy custom startup script
 COPY start.sh /start.sh
 RUN chmod +x /start.sh
 
-# Set entrypoint
-CMD ["/start.sh"]
+# Expose ports for Apache and MySQL
+EXPOSE 80 3306
+
+# Set the container startup command
+CMD ["bash", "-c", "/start.sh"]
